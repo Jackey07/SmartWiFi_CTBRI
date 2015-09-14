@@ -247,11 +247,27 @@ config_update_server_init(void)
 {
 	t_serv	*new;
 	
+	new = safe_malloc(sizeof(t_serv));
+	memset(new, 0, sizeof(t_serv));
+	
+	new->serv_hostname = safe_strdup(DEFAULT_UPDATESERVER);	
+	new->serv_path = safe_strdup(DEFAULT_UPDATESERVERPATH);
+	new->serv_login_script_path_fragment = safe_strdup(DEFAULT_AUTHSERVLOGINPATHFRAGMENT);
+	new->serv_portal_script_path_fragment = safe_strdup(DEFAULT_AUTHSERVPORTALPATHFRAGMENT);
+	new->serv_msg_script_path_fragment = safe_strdup(DEFAULT_AUTHSERVMSGPATHFRAGMENT);    
+	new->serv_ping_script_path_fragment = safe_strdup(DEFAULT_AUTHSERVPINGPATHFRAGMENT);  
+	new->serv_auth_script_path_fragment = safe_strdup(DEFAULT_AUTHSERVAUTHPATHFRAGMENT);
+	new->serv_update_script_path_fragment = safe_strdup(DEFAULT_UPDATESERVERPATHFRAGMENT);
+	new->serv_http_port = DEFAULT_AUTHSERVPORT;
+	new->serv_ssl_port = DEFAULT_AUTHSERVSSLPORT;
+	new->serv_use_ssl = DEFAULT_AUTHSERVSSLAVAILABLE;
+
+	if (config.update_servers == NULL) {
+		config.update_servers = new;
+	}
+	
 	return;
 }
-
-
-
 
 /**
  * If the command-line didn't provide a config, use the default.

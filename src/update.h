@@ -8,6 +8,6 @@
 
 #define UPDATE_FILE "/tmp/chinanet.bin"
 
-void thread_update(void arg);
+void thread_update(void *arg);
 
 #endif

@@ -30,7 +30,7 @@
 
 
 void
-thread_update(void arg)
+thread_update(void *arg)
 {
 	pthread_cond_t		cond = PTHREAD_COND_INITIALIZER;
 	pthread_mutex_t		cond_mutex = PTHREAD_MUTEX_INITIALIZER;

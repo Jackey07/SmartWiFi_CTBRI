@@ -82,10 +82,9 @@ typedef struct _serv_t {
     char *serv_msg_script_path_fragment;	/**< @brief This is the script the user will be sent to upon error to read a readable message. */
     char *serv_ping_script_path_fragment;	/**< @brief This is the ping heartbeating script. */
     char *serv_auth_script_path_fragment;	/**< @brief This is the script that talks the wifidog gateway protocol. */
-    int serv_http_port;	/**< @brief Http port the central server
-				     listens on */
-    int serv_ssl_port;	/**< @brief Https port the central server
-				     listens on */
+    char *serv_update_script_path_fragment;	/**< @brief This is the script the user will be sent to for update. */
+    int serv_http_port;	/**< @brief Http port the central server listens on */
+    int serv_ssl_port;	/**< @brief Https port the central server listens on */
     int serv_use_ssl;	/**< @brief Use SSL or not */
     char *last_ip;	/**< @brief Last ip used by authserver */
     struct _serv_t *next;

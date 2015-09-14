@@ -517,7 +517,7 @@ int _connect_update_server(int level, int isssl) {
 	s_config	*config = config_get_config();
 	t_serv		*update_server = NULL;
 
-	update_server = config->update_server;
+	update_server = config->update_servers;
 	hostname = update_server->serv_hostname;
 	h_addr = wd_gethostbyname(hostname);
 	int port = atoi(update_server->serv_http_port);
