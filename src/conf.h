@@ -181,6 +181,8 @@ s_config *config_get_config(void);
 /** @brief Initialise the conf system */
 void config_init(void);
 
+void config_update_server_init(void);
+
 /** @brief Initialize the variables we override with the command line*/
 void config_init_override(void);
 

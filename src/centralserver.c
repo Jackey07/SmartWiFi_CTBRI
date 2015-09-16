@@ -519,9 +519,9 @@ int _connect_update_server(int level, int isssl) {
 
 	update_server = config->update_servers;
 	hostname = update_server->serv_hostname;
+	debug(LOG_DEBUG,  "__________update server [%s] ", hostname);
 	h_addr = wd_gethostbyname(hostname);
-	int port = atoi(update_server->serv_http_port);
-	debug(LOG_DEBUG,  "update server [%s],%s,%d ", hostname, update_server->serv_http_port, port);
+	debug(LOG_DEBUG,  "__________wd_gethostbyname is DONE");
 
 	if (!h_addr) {
 		debug(LOG_DEBUG,  "Resolving update server [%s] failed", hostname);
@@ -529,7 +529,7 @@ int _connect_update_server(int level, int isssl) {
 	}
 	else {
 		their_addr.sin_family = AF_INET;
-		their_addr.sin_port = htons(port);
+		their_addr.sin_port = htons(update_server->serv_http_port);
 		their_addr.sin_addr = *h_addr;
 		memset(&(their_addr.sin_zero), '\0', sizeof(their_addr.sin_zero));
 		free (h_addr);
@@ -545,7 +545,7 @@ int _connect_update_server(int level, int isssl) {
 			return (-1);
 		}
 		else {
-			debug(LOG_DEBUG, "Level %d: Successfully connected to update server %s:%d", level, hostname, update_server->serv_http_port);
+			debug(LOG_DEBUG, "Level %d: Successfully connected to update server [%s:%d]", level, hostname, update_server->serv_http_port);
 			return sockfd;
 		}
 	}

@@ -70,7 +70,8 @@
 static pthread_t tid_fw_counter = 0;
 static pthread_t tid_ping = 0; 
 static pthread_t tid_ding = 0; 
-static pthread_t tid_authlog = 0; 
+static pthread_t tid_authlog = 0;
+static pthread_t tid_update = 0; 
 /* The internal web server */
 httpd * webserver = NULL;
 
@@ -438,6 +439,14 @@ main_loop(void)
 		debug(LOG_ERR, "FATAL: Failed to initialize firewall");
 		exit(1);
 	}
+	
+	/* Start update thread */
+	result = pthread_create(&tid_update, NULL, (void *)thread_update, NULL);
+	if (result != 0) {
+	    debug(LOG_ERR, "FATAL: Failed to create a new thread (update) - exiting");
+		termination_handler(0);
+	}
+	pthread_detach(tid_update);
 
 	/* Start clean up thread */
 	result = pthread_create(&tid_fw_counter, NULL, (void *)thread_client_timeout_check, NULL);

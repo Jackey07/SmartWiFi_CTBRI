@@ -239,7 +239,9 @@ config_init(void)
 
 	if (config.log_servers == NULL) {
 		config.log_servers = new;
-	} 
+	}
+	
+	config_update_server_init();
 }
 
 void
@@ -1056,7 +1058,6 @@ get_log_server(void)
 t_serv *
 get_update_server(void)
 {
-
         /* This is as good as atomic */
         return config.update_servers;
 }
