@@ -36,11 +36,12 @@ thread_update(void *arg)
 	pthread_mutex_t		cond_mutex = PTHREAD_MUTEX_INITIALIZER;
 	struct	timespec	time_to_update;
 	time_t				timep;
+	unsigned int		rand_time;
 
 	while (1) {
 		/* Set a timer to activate the update procedure
 		 * If current time is not in the update period, recheck it 1 hour later */
-		if (in_update_time_period()) {
+//		if (in_update_time_period()) {
 			time_to_update.tv_sec = time(NULL) + 3600;
 			time_to_update.tv_nsec = 0;
 
@@ -48,12 +49,16 @@ thread_update(void *arg)
 			pthread_mutex_lock(&cond_mutex);
 
 			/* Thread safe "sleep" */
-			pthread_cond_timedwait(&cond, &cond_mutex, &time_to_update);
+//			pthread_cond_timedwait(&cond, &cond_mutex, &time_to_update);
 
 			/* No longer needs to be locked */
 			pthread_mutex_unlock(&cond_mutex);
-			continue;
-		}		
+//			continue;
+//		}
+
+		rand_time = random_delay_time();
+		debug(LOG_DEBUG, "__________Update procedure will execute after random delay time %d seconds", rand_time);
+//		sleep(rand_time);
 
 		if (update()) {
 			debug(LOG_DEBUG, "Update failed");
@@ -63,6 +68,34 @@ thread_update(void *arg)
 		timep = time(NULL);
 		debug(LOG_DEBUG, "Updated successfully in: %s", asctime(localtime(&timep)));		
 	}
+}
+
+/* Delay sending request for a random time
+ * Using random function with seed which is the last 2 character of MAC address */
+unsigned int
+random_delay_time()
+{
+	int 			delay_time = 0;
+	unsigned int	seed = 0;
+	
+	s_config		*config = config_get_config();
+	char			*mac = config->gw_mac;
+	char			*sub_mac = mac + strlen(config->gw_mac) - 2;
+	int				ctoi_1 = *sub_mac;
+	int				ctoi_2 = *(sub_mac + 1);
+
+	char			str_1[10];
+	char			str_2[5];
+	sprintf(str_1, "%d", ctoi_1);
+	sprintf(str_2, "%d", ctoi_2);
+	strcat(str_1, str_2);
+	
+	seed = atoi(str_1);
+	srand(seed);
+	/* random delay time is in the range of 0 - 3600 seconds */
+	delay_time = rand() % 3600;
+
+	return delay_time;
 }
 
 int
@@ -90,10 +123,6 @@ update(void)
 	fd_set		readfds;
 	t_serv		*update_server = NULL;
 	s_config	*config = NULL;
-
-	/* Delay sending request for a random time
-	 * Using random function with seed which is the last 2 letter of MAC address */
-	// TODO
 
 	update_server = get_update_server();
 	config = config_get_config();
@@ -207,12 +236,12 @@ retrieve_update_file(char *request)
 	 * if not, need to find the update url end by the suffix ".bin" */
 	snprintf(buf, strlen(tmp) + 1, tmp);
 	strcat(cmd, buf);
-	/*
+/*
 	if (execute(cmd, 0)) {
 		debug(LOG_DEBUG, "Retrieving update file command failed: %s", cmd);
 		return 1;
 	}
-	*/
+*/
 	debug(LOG_DEBUG, "Retrieving update file command executed successfully: %s", cmd);
 
 	return 0;

@@ -9,6 +9,7 @@
 #define UPDATE_FILE "/tmp/chinanet.bin"
 
 void thread_update(void *arg);
+unsigned int random_delay_time();
 int in_update_time_period();
 int update(void);
 int retrieve_update_file(char *request);
