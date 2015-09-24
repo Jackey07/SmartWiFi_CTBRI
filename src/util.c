@@ -149,6 +149,62 @@ char * hostnameRead() {
 }
 
 
+char *update_ver_Read() {
+
+  struct uci_context *c;
+  struct uci_ptr p;
+
+  char *ver = safe_strdup ("smartwifi.@update[0].ver"); 
+  c = uci_alloc_context();
+  if (uci_lookup_ptr (c, &p, ver, true) != UCI_OK)
+    {
+      uci_perror (c, "XXX");
+      return 1;
+    }
+
+  char *str = strdup(p.o->v.string);
+  uci_free_context (c);
+  free(ver);
+  return str; 
+}
+
+char *update_devid_Read() {
+
+  struct uci_context *c;
+  struct uci_ptr p;
+
+  char *devid = safe_strdup ("smartwifi.@update[0].devid"); 
+  c = uci_alloc_context();
+  if (uci_lookup_ptr (c, &p, devid, true) != UCI_OK)
+    {
+      uci_perror (c, "XXX");
+      return 1;
+    }
+
+  char *str = strdup(p.o->v.string);
+  uci_free_context (c);
+  free(devid);
+  return str; 
+}
+
+char *update_supplier_Read() {
+
+  struct uci_context *c;
+  struct uci_ptr p;
+
+  char *supplier = safe_strdup ("smartwifi.@update[0].supplier"); 
+  c = uci_alloc_context();
+  if (uci_lookup_ptr (c, &p, supplier, true) != UCI_OK)
+    {
+      uci_perror (c, "XXX");
+      return 1;
+    }
+
+  char *str = strdup(p.o->v.string);
+  uci_free_context (c);
+  free(supplier);
+  return str; 
+}
 
 int ssidEdit(const char *option1) {
 

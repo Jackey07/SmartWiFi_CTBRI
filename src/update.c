@@ -1,7 +1,29 @@
 /********************************************************************\
- *
- *
-\********************************************************************/
+ * This program is free software; you can redistribute it and/or    *
+ * modify it under the terms of the GNU General Public License as   *
+ * published by the Free Software Foundation; either version 2 of   *
+ * the License, or (at your option) any later version.              *
+ *                                                                  *
+ * This program is distributed in the hope that it will be useful,  *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of   *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the    *
+ * GNU General Public License for more details.                     *
+ *                                                                  *
+ * You should have received a copy of the GNU General Public License*
+ * along with this program; if not, contact:                        *
+ *                                                                  *
+ * Free Software Foundation           Voice:  +1-617-542-5942       *
+ * 59 Temple Place - Suite 330        Fax:    +1-617-542-2652       *
+ * Boston, MA  02111-1307,  USA       gnu@gnu.org                   *
+ *                                                                  *
+ \********************************************************************/
+
+/* $Id$ */
+/**
+  @file update.c
+  @brief Auto update functions
+  @author Copyright (C) 2015 CTBRI <guojia@ctbri.com.cn>
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,8 +49,6 @@
 #include "fetchcmd.h"
 #include "update.h"
 
-
-
 void
 thread_update(void *arg)
 {
@@ -41,7 +61,7 @@ thread_update(void *arg)
 	while (1) {
 		/* Set a timer to activate the update procedure
 		 * If current time is not in the update period, recheck it 1 hour later */
-//		if (in_update_time_period()) {
+//		if (in_update_time_period(0)) {
 			time_to_update.tv_sec = time(NULL) + 3600;
 			time_to_update.tv_nsec = 0;
 
@@ -61,12 +81,13 @@ thread_update(void *arg)
 //		sleep(rand_time);
 
 		if (update()) {
-			debug(LOG_DEBUG, "Update failed");
+			debug(LOG_DEBUG, "__________Update failed");
 			// TODO make thread sleep?
-		}
-
-		timep = time(NULL);
-		debug(LOG_DEBUG, "Updated successfully in: %s", asctime(localtime(&timep)));		
+		} else {
+			timep = time(NULL);
+			debug(LOG_DEBUG, "Updated successfully in: %s", asctime(localtime(&timep)));
+			// TODO report to log server
+		}	
 	}
 }
 
@@ -75,7 +96,7 @@ thread_update(void *arg)
 unsigned int
 random_delay_time()
 {
-	int 			delay_time = 0;
+	unsigned int	delay_time = 0;
 	unsigned int	seed = 0;
 	
 	s_config		*config = config_get_config();
@@ -99,11 +120,18 @@ random_delay_time()
 }
 
 int
-in_update_time_period()
+in_update_time_period(unsigned int delay_time)
 {
 	time_t		timep = time(NULL);	
-	struct tm	*p_tm = localtime(&timep);
-	int			current_hour = (p_tm->tm_hour + 8) % 24;
+	struct tm	*p_tm;
+	int			current_hour;
+	
+	if (delay_time) {
+		timep += delay_time;
+	}
+	
+	p_tm = localtime(&timep);
+	current_hour = (p_tm->tm_hour) % 24;
 	
 	if ((current_hour < 2) || (current_hour > 5)) {
 		debug(LOG_DEBUG, "Current time is not in the period 2:00 - 5:00");
@@ -116,51 +144,110 @@ in_update_time_period()
 int
 update(void)
 {
-	ssize_t		numbytes;
-	size_t		totalbytes;
-	int			sockfd, nfds, done;
-	char		request[MAX_BUF];
-	fd_set		readfds;
-	t_serv		*update_server = NULL;
-	s_config	*config = NULL;
+debug(LOG_DEBUG, "__________Entering function update()");
 
-	update_server = get_update_server();
-	config = config_get_config();
-	debug(LOG_DEBUG, "Entering function update()");
-
-	sockfd = connect_update_server();
-	if (sockfd == -1) {
+	int				sockfd;
+	char			request[MAX_BUF];
+	t_serv			*update_server = get_update_server();
+	s_config		*config = config_get_config();
+	char			*response;
+// In release version, delay time is 1200 seconds
+	unsigned int	delay_time = 5;
+	unsigned int	times = 0;
+	int				is_update_url = 0;
+	char			*tmp;
+	
+	if ((sockfd = connect_update_server()) == -1) {
 		return -1;
 	}
 
-	// http://apupgrade.51awifi.com/upgrade/update.do?devid=DEFAULT_ZJ_0001&version=V1.0.1&model=HG261GS&HDversion=HS.V2.0&supplier=FiberHome&city=310000&applyid=1289820708&rdMD5=a8381eb16324fc69647a19aaeda7b406
 	snprintf(request, sizeof(request) - 1,
-			"GET http://apupgrade.51awifi.com:80/upgrade/update.do?devid=DEFAULT_ZJ_0001&version=V1.0.1&model=HG261GS&HDversion=HS.V2.0&supplier=FiberHome&city=310000&applyid=1289820708&rdMD5=a8381eb16324fc69647a19aaeda7b406 HTTP/1.0\r\n"
+			"GET %s%sdevid=%s&version=%s&model=%s&HDversion=%s&supplier=%s&city=%s&applyid=%s&rdMD5=%s HTTP/1.0\r\n"
 			"User-Agent: WiFiDog 1.1 \r\n"
 			"Host: apupgrade.51awifi.com \r\n"
-			"\r\n");
-	/*
-			"GET %s?devid=%s&version=%s&model=%s&HDversion=%s&supplier=%s&city=%s&applyid=%s&rdMD5=%s HTTP/1.0\r\n", 
-			"http://apupgrade.51awifi.com:80/upgrade/update.do",	// update_server->serv_path,
+			"\r\n", 
+			update_server->serv_path,
+			update_server->serv_update_script_path_fragment,
 									// Util.c/urlRead() ...
-			"DEFAULT_ZJ_0001",		// config->dev_id,
-			"V1.0.1",
+			update_devid_Read(),		// config->dev_id,
+			update_ver_Read(),
 			"HG261GS",
 			"HS.V2.0",
-			"FiberHome",
+			update_supplier_Read(),
 			"310000",
 			"1289820708",
 			"a8381eb16324fc69647a19aaeda7b406");
-	*/		
 
 	debug(LOG_DEBUG, "HTTP Request to Server: [%s]", request);
 
-	send(sockfd, request, strlen(request), 0);
+	do {
+		response = send_request(sockfd, &request);
+		debug(LOG_DEBUG, "__________Response from Server: [%s]", response);
+		
+		/* XXX The premiss is the url for update files is in the end of the response,
+		 * if not, need to find the update url end by the suffix ".bin" */		
+		if (strstr(response, ".bin") == NULL) {
+			times++;
+			if (in_update_time_period(delay_time) == 0) {
+//				sleep(delay_time);
+				continue;
+			} else {
+				close(sockfd);
+				return -1;
+			}
+		} else {
+			is_update_url = 1;
+			break;
+		}
+	
+	} while (times < 3);
+;
+	close(sockfd);
 
+	if (times >= 3) {
+		debug(LOG_DEBUG, "Trying to get update url more than 3 times");
+		return -1;
+	}
+
+	// The correct URL returned is a download address for update file suffixed with ".bin"
+	if (is_update_url) {
+		tmp = strstr(response, "http://apupgrade.51awifi.com/upload");
+		if (retrieve_update_file(tmp)) {
+			debug(LOG_DEBUG, "Retrieving update file failed");
+			return -1;
+		}
+	} else {
+		debug(LOG_DEBUG, "HTTP request format maybe wrong");
+		return -1;
+	}
+
+
+	if (check_network_traffic()) {
+		debug(LOG_DEBUG, "Network traffic rate is too high for update procedure");
+		return -1;
+	}
+
+	if (do_update()) {
+		debug(LOG_DEBUG, "Sysupgrade failed");
+		return -1;
+	}
+
+	return 0;
+}
+
+
+char *
+send_request(int sockfd, char *request)
+{
+	ssize_t		numbytes = 0;
+	size_t		totalbytes = 0;
+	int			nfds, done = 0;
+	fd_set		readfds;
+	char		response[MAX_BUF];
+
+	send(sockfd, request, strlen(request), 0);
 	debug(LOG_DEBUG, "Reading response");
 
-	numbytes = totalbytes = 0;
-	done = 0;
 	do {
 		FD_ZERO(&readfds);
 		FD_SET(sockfd, &readfds);
@@ -169,11 +256,10 @@ update(void)
 		nfds = select(nfds, &readfds, NULL, NULL, NULL);
 
 		if (nfds > 0) {
-			numbytes = read(sockfd, request + totalbytes, MAX_BUF - (totalbytes + 1));
+			numbytes = read(sockfd, response + totalbytes, MAX_BUF - (totalbytes + 1));
 			if (numbytes < 0) {
 				debug(LOG_ERR, "An error occurred while reading from update server: %s", strerror(errno));
-				close(sockfd);
-				return -1;
+				return NULL;
 			}
 			else if (numbytes == 0) {
 				done = 1;
@@ -185,97 +271,89 @@ update(void)
 		}
 		else if (nfds == 0) {
 			debug(LOG_ERR, "Timed out reading data via select() from update server");
-			close(sockfd);
-			return -1;
+			return NULL;
 		}
 		else if (nfds < 0) {
 			debug(LOG_ERR, "Error reading data via select() from update server: %s", strerror(errno));
-			close(sockfd);
-			return -1;
+			return NULL;
 		}
 	} while (!done);
-	close(sockfd);
 
 	debug(LOG_DEBUG, "Done reading reply, total %d bytes", totalbytes);
+	response[totalbytes] = '\0';
 
-	request[totalbytes] = '\0';
-
-	debug(LOG_DEBUG, "HTTP Response from Server: [%s]", request);
-
-	// The correct URL returned is a download address for update file suffixed with ".bin"
-	if (strstr(request, ".bin")) {
-		if (retrieve_update_file(&request)) {
-			debug(LOG_DEBUG, "Retrieving update file failed");
-			return -1;
-		}
-	} else {
-		debug(LOG_DEBUG, "HTTP request format maybe wrong");
-		return -1;
-	}
-
-	network_traffic();
-
-	if (do_update()) {
-		debug(LOG_DEBUG, "Sysupgrade failed");
-		return -1;
-	}
-
-
-	return 0;
+	return response;
 }
 
 
 int
 retrieve_update_file(char *request)
 {
-	char cmd[MAX_BUF] = "wget -c -O /tmp/ctbri.bin ";
-	char buf[MAX_BUF];
-	char *tmp = strstr(request, "http://apupgrade.51awifi.com/upload");
-
-	/* XXX The premiss is the url for update files is in the end of the response,
-	 * if not, need to find the update url end by the suffix ".bin" */
-	snprintf(buf, strlen(tmp) + 1, tmp);
-	strcat(cmd, buf);
+	char cmd[MAX_BUF];
+/*	
+	char rm_cmd[MAX_BUF] = "rm /tmp/ctbri.bin";
+	if (execute(rm_cmd, 0) == 0) {
+		debug(LOG_DEBUG, "rm update file command successfully: %s", rm_cmd);
+	}
+*/
+	sprintf(cmd, "wget -c -O /tmp/ctbri.bin %s", request);
 /*
 	if (execute(cmd, 0)) {
 		debug(LOG_DEBUG, "Retrieving update file command failed: %s", cmd);
-		return 1;
+		return -1;
 	}
 */
-	debug(LOG_DEBUG, "Retrieving update file command executed successfully: %s", cmd);
+	debug(LOG_DEBUG, "Retrieving update file command executed successfully: [%s]", cmd);
 
 	return 0;
 }
 
+/* Check network traffic, if the rate is high, check it minutes later
+ * maximum check times is 3 */
 unsigned long int
-network_traffic()
+check_network_traffic()
 {
-	FILE *fh;
 	unsigned long int	traffic_in_old = 0;
 	unsigned long int	traffic_in = 0;
 	unsigned long int	traffic_in_diff = 0;
-	// In release version, interval time is 300 seconds
-	unsigned int 		seconds = 10;
+// In release version, interval time is 300 seconds
+	unsigned int 		interval_time = 10;
+// In release version, delay time is 1200 seconds
+	unsigned int		delay_time = 5;
+	unsigned int		times = 0;
 
-	if (fh = fopen("/proc/net/dev", "r")) {
-		while (!feof(fh)) {
-			/* XXX Need reading the network interface from config file
-			 * rather than assigning a static interface */
-			if(fscanf(fh, "br-lan: %lu", &traffic_in_old) != 1) {
-				/* Not on this line */
-				while (!feof(fh) && fgetc(fh) != '\n');
-			}
-			else {
-				/* Found it */
-				debug(LOG_DEBUG, "Read old date in dev file successfully: %lu", traffic_in_old);
-				break;
-			}
+	do {
+		traffic_in_old = get_network_traffic();
+		sleep(interval_time);
+		traffic_in = get_network_traffic();
+
+		traffic_in_diff = (traffic_in - traffic_in_old) / interval_time;
+		traffic_in_diff /= 1024;
+debug(LOG_DEBUG, "__________Network traffic now is: %lu KB/s", traffic_in_diff);
+
+		if (traffic_in_diff > 10) {
+			times++;
+			sleep(delay_time);
+			continue;
+		} else {
+			break;
 		}
-		fclose(fh);
+	} while (times < 3);
+
+	if (times >= 3) {
+		debug(LOG_DEBUG, "Geting network traffic more than 3 times, each time traffic rate > 10KBps");
+		return -1;
+	} else {
+		return traffic_in_diff;
 	}
-	
-	sleep(seconds);
-	
+}
+
+unsigned long int
+get_network_traffic()
+{
+	FILE *fh;
+	unsigned long int	traffic_in = 0;
+
 	if (fh = fopen("/proc/net/dev", "r")) {
 		while (!feof(fh)) {
 			/* XXX Need reading the network interface from config file
@@ -286,19 +364,14 @@ network_traffic()
 			}
 			else {
 				/* Found it */
-				debug(LOG_DEBUG, "Read date in dev file successfully: %lu", traffic_in);
+				debug(LOG_DEBUG, "Read the number of received packets in the file /proc/net/dev successfully: %lu", traffic_in);
 				break;
 			}
 		}
 		fclose(fh);
 	}
 
-	traffic_in_diff = (traffic_in - traffic_in_old) / seconds;
-	debug(LOG_DEBUG, "Network traffic now is: %lu Kbps", traffic_in_diff);
-	traffic_in_diff = traffic_in_diff / 1024;
-	debug(LOG_DEBUG, "Network traffic now is: %lu KB/s", traffic_in_diff);
-
-	return traffic_in_diff;
+	return traffic_in;
 }
 
 int

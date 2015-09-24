@@ -34,6 +34,12 @@
 char * ssidRead(); 
 char * urlRead(); 
 char * hostnameRead();
+
+/* @brief Get update set from config file */
+char *update_ver_Read();
+char *update_devid_Read();
+char *update_supplier_Read();
+
 int ssidEdit(const char *option1);
 int hostnameEdit(const char *option2);
 /** @brief Execute a shell command

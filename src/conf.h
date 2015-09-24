@@ -58,8 +58,8 @@
 #define DEFAULT_LOGSERVER "Wifi-admin.ctbri.com.cn"
 // DEFAULT UPDATE SERVER CONFIG
 #define DEFAULT_UPDATESERVER "apupgrade.51awifi.com"
-#define DEFAULT_UPDATESERVERPATH "/upgrade/"
-#define DEFAULT_UPDATESERVERPATHFRAGMENT "update.do?"
+#define DEFAULT_UPDATESERVERPATH "/upgrade"
+#define DEFAULT_UPDATESERVERPATHFRAGMENT "/update.do?"
 /** Note that DEFAULT_AUTHSERVSSLAVAILABLE must be 0 or 1, even if the config file syntax is yes or no */
 #define DEFAULT_AUTHSERVSSLAVAILABLE 0
 /** Note:  The path must be prefixed by /, and must be suffixed /.  Put / for the server root.*/
@@ -171,8 +171,8 @@ typedef struct {
     int syslog_facility;	/**< @brief facility to use when using syslog for
 				     logging */
     int proxy_port;		/**< @brief Transparent proxy port (0 to disable) */
-    t_firewall_ruleset	*rulesets;	/**< @brief firewall rules */
-    t_trusted_mac *trustedmaclist; /**< @brief list of trusted macs */
+    t_firewall_ruleset *rulesets;	/**< @brief firewall rules */
+    t_trusted_mac *trustedmaclist;	/**< @brief list of trusted macs */
 } s_config;
 
 /** @brief Get the current gateway configuration */

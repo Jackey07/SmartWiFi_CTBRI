@@ -471,7 +471,7 @@ int _connect_log_server(int level,int isssl) {
 	}
 }
 
-// Tries really hard to connect to an update server. Returns a file descriptor, -1 on error
+/* Tries really hard to connect to an update server. Returns a file descriptor, -1 on error */
 int connect_update_server() {
 	int sockfd;
 
@@ -519,9 +519,8 @@ int _connect_update_server(int level, int isssl) {
 
 	update_server = config->update_servers;
 	hostname = update_server->serv_hostname;
-	debug(LOG_DEBUG,  "__________update server [%s] ", hostname);
+debug(LOG_DEBUG,  "__________update server [%s] ", hostname);
 	h_addr = wd_gethostbyname(hostname);
-	debug(LOG_DEBUG,  "__________wd_gethostbyname is DONE");
 
 	if (!h_addr) {
 		debug(LOG_DEBUG,  "Resolving update server [%s] failed", hostname);
