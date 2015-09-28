@@ -148,7 +148,6 @@ char * hostnameRead() {
   return str; 
 }
 
-
 char *update_ver_Read() {
 
   struct uci_context *c;
@@ -206,6 +205,30 @@ char *update_supplier_Read() {
   return str; 
 }
 
+int update_ver_Edit(const char *option) {
+
+  struct uci_context *c;
+  struct uci_ptr p;
+
+  int length= strlen("smartwifi.@update[0].ver=") + strlen(option) + 1;
+  char *ver = safe_malloc(length);
+  sprintf(ver, "smartwifi.@update[0].ver=%s", option); 
+
+  c = uci_alloc_context();
+  if (uci_lookup_ptr (c, &p, ver, true) != UCI_OK)
+    {
+      uci_perror (c, "XXX");
+      return 1;
+    }
+
+  uci_set(c, &p);   
+  uci_save(c, p.p);
+  uci_commit(c, &p.p, false);
+  uci_free_context (c);
+  free(ver);
+  return(0); 
+}
+
 int ssidEdit(const char *option1) {
 
   struct uci_context *c;
@@ -228,7 +251,7 @@ int ssidEdit(const char *option1) {
   uci_save(c, p.p);
   uci_commit(c, &p.p, false);
   uci_free_context (c);
- free(ssid);
+  free(ssid);
   return(0); 
 }
 
@@ -253,7 +276,7 @@ int hostnameEdit(const char *option2) {
   uci_save(c, p.p);
   uci_commit(c, &p.p, false);
   uci_free_context (c);
- free(hostname);
+  free(hostname);
   return(0); 
 }
 
@@ -287,7 +310,7 @@ execute(const char *cmd_line, int quiet)
                 exit(1);
         }
 
-        /* for the parent:      */
+	/* for the parent:      */
 	debug(LOG_DEBUG, "Waiting for PID %d to exit", pid);
 	rc = waitpid(pid, &status, 0);
 	debug(LOG_DEBUG, "Process PID %d exited", rc);

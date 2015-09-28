@@ -35,10 +35,11 @@ char * ssidRead();
 char * urlRead(); 
 char * hostnameRead();
 
-/* @brief Get update set from config file */
+/* @brief Get update config from file */
 char *update_ver_Read();
 char *update_devid_Read();
 char *update_supplier_Read();
+int update_ver_Edit(const char *option);
 
 int ssidEdit(const char *option1);
 int hostnameEdit(const char *option2);

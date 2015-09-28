@@ -28,9 +28,10 @@
 #ifndef _UPDATE_
 #define _UPDATE_
 
-#define UPDATE_FILE "/tmp/chinanet.bin"
+#define UPDATE_FILE "/tmp/ctbri.bin"
 
 void thread_update(void *arg);
+int delay_to_next_day();
 
 /* Delay sending request for a random time
  * Using random function with seed which is the last 2 character of MAC address */

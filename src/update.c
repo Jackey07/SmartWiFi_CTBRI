@@ -59,22 +59,13 @@ thread_update(void *arg)
 	unsigned int		rand_time;
 
 	while (1) {
-		/* Set a timer to activate the update procedure
-		 * If current time is not in the update period, recheck it 1 hour later */
-//		if (in_update_time_period(0)) {
-			time_to_update.tv_sec = time(NULL) + 3600;
-			time_to_update.tv_nsec = 0;
-
-			/* Mutex must be locked for pthread_cond_timedwait... */
-			pthread_mutex_lock(&cond_mutex);
-
-			/* Thread safe "sleep" */
-//			pthread_cond_timedwait(&cond, &cond_mutex, &time_to_update);
-
-			/* No longer needs to be locked */
-			pthread_mutex_unlock(&cond_mutex);
-//			continue;
-//		}
+/*
+		if (in_update_time_period(0)) {
+			delay_to_next_day();
+			debug(LOG_DEBUG, "__________Delay update procedure to next day");
+			continue;
+		}
+*/
 
 		rand_time = random_delay_time();
 		debug(LOG_DEBUG, "__________Update procedure will execute after random delay time %d seconds", rand_time);
@@ -82,13 +73,45 @@ thread_update(void *arg)
 
 		if (update()) {
 			debug(LOG_DEBUG, "__________Update failed");
-			// TODO make thread sleep?
+			delay_to_next_day();
+			continue;
 		} else {
 			timep = time(NULL);
 			debug(LOG_DEBUG, "Updated successfully in: %s", asctime(localtime(&timep)));
 			// TODO report to log server
+			// TODO set version number in config file
 		}	
 	}
+}
+
+int
+delay_to_next_day()
+{
+	pthread_cond_t		cond = PTHREAD_COND_INITIALIZER;
+	pthread_mutex_t		cond_mutex = PTHREAD_MUTEX_INITIALIZER;
+	struct	timespec	time_to_update;
+	time_t				timep;
+	struct tm			*p_tm;
+	int					current_hour, interval_hour;
+
+	/* Set a timer to activate the update procedure
+	 * If current time is not in the update period, delay it untile 2:00 */
+	timep = time(NULL);
+	p_tm = localtime(&timep);
+	current_hour = p_tm->tm_hour;
+	interval_hour = (26 - current_hour) % 24;
+	
+	time_to_update.tv_sec = time(NULL) + interval_hour * 3600;
+	time_to_update.tv_nsec = 0;
+
+	/* Mutex must be locked for pthread_cond_timedwait... */
+	pthread_mutex_lock(&cond_mutex);
+	/* Thread safe "sleep" */
+	pthread_cond_timedwait(&cond, &cond_mutex, &time_to_update);
+	/* No longer needs to be locked */
+	pthread_mutex_unlock(&cond_mutex);
+
+	return 0;
 }
 
 /* Delay sending request for a random time
@@ -105,13 +128,10 @@ random_delay_time()
 	int				ctoi_1 = *sub_mac;
 	int				ctoi_2 = *(sub_mac + 1);
 
-	char			str_1[10];
-	char			str_2[5];
-	sprintf(str_1, "%d", ctoi_1);
-	sprintf(str_2, "%d", ctoi_2);
-	strcat(str_1, str_2);
+	char			str_seed[10];
+	sprintf(str_seed, "%d%d", ctoi_1, ctoi_2);
 	
-	seed = atoi(str_1);
+	seed = atoi(str_seed);
 	srand(seed);
 	/* random delay time is in the range of 0 - 3600 seconds */
 	delay_time = rand() % 3600;
@@ -136,9 +156,9 @@ in_update_time_period(unsigned int delay_time)
 	if ((current_hour < 2) || (current_hour > 5)) {
 		debug(LOG_DEBUG, "Current time is not in the period 2:00 - 5:00");
 		return -1;
+	} else {
+		return 0;
 	}
-
-	return 0;
 }
 
 int
@@ -168,8 +188,7 @@ debug(LOG_DEBUG, "__________Entering function update()");
 			"\r\n", 
 			update_server->serv_path,
 			update_server->serv_update_script_path_fragment,
-									// Util.c/urlRead() ...
-			update_devid_Read(),		// config->dev_id,
+			config->dev_id,				// update_devid_Read(),
 			update_ver_Read(),
 			"HG261GS",
 			"HS.V2.0",
@@ -291,7 +310,8 @@ retrieve_update_file(char *request)
 {
 	char cmd[MAX_BUF];
 /*	
-	char rm_cmd[MAX_BUF] = "rm /tmp/ctbri.bin";
+	char rm_cmd[MAX_BUF];
+	sprintf(rm_cmd, "rm %s", UPDATE_FILE);
 	if (execute(rm_cmd, 0) == 0) {
 		debug(LOG_DEBUG, "rm update file command successfully: %s", rm_cmd);
 	}
