@@ -59,31 +59,33 @@ thread_update(void *arg)
 	unsigned int		rand_time;
 
 	while (1) {
-/*
+#if DEBUG
+		/* Set a timer to activate the update procedure
+		 * If current time is not in the update period, delay it untile 2:00 */
 		if (in_update_time_period(0)) {
 			delay_to_next_day();
-			debug(LOG_DEBUG, "__________Delay update procedure to next day");
+			debug(LOG_DEBUG, "Delay update procedure to next day");
 			continue;
 		}
-*/
+#endif
 
 		rand_time = random_delay_time();
-		debug(LOG_DEBUG, "__________Update procedure will execute after random delay time %d seconds", rand_time);
-//		sleep(rand_time);
-
+		debug(LOG_DEBUG, "Update procedure will execute after random delay time %d seconds", rand_time);
+#if DEBUG
+		sleep(rand_time);
+#endif
 		if (update()) {
-			debug(LOG_DEBUG, "__________Update failed");
+			debug(LOG_DEBUG, "Update failed");
 			delay_to_next_day();
 			continue;
 		} else {
 			timep = time(NULL);
 			debug(LOG_DEBUG, "Updated successfully in: %s", asctime(localtime(&timep)));
-			// TODO report to log server
-			// TODO set version number in config file
 		}	
 	}
 }
 
+/* Delay time until 2:00 next day */
 int
 delay_to_next_day()
 {
@@ -94,8 +96,6 @@ delay_to_next_day()
 	struct tm			*p_tm;
 	int					current_hour, interval_hour;
 
-	/* Set a timer to activate the update procedure
-	 * If current time is not in the update period, delay it untile 2:00 */
 	timep = time(NULL);
 	p_tm = localtime(&timep);
 	current_hour = p_tm->tm_hour;
@@ -139,6 +139,7 @@ random_delay_time()
 	return delay_time;
 }
 
+/* Check the current time whether in the period 2:00 - 5:00 */
 int
 in_update_time_period(unsigned int delay_time)
 {
@@ -167,15 +168,16 @@ update(void)
 debug(LOG_DEBUG, "__________Entering function update()");
 
 	int				sockfd;
-	char			request[MAX_BUF];
+	char			request[MAX_BUF], response[MAX_BUF];
 	t_serv			*update_server = get_update_server();
 	s_config		*config = config_get_config();
-	char			*response;
 // In release version, delay time is 1200 seconds
-	unsigned int	delay_time = 5;
+	unsigned int	delay_time = DELAY_TIME;
 	unsigned int	times = 0;
 	int				is_update_url = 0;
-	char			*tmp;
+	char			*update_url;
+	char			update_ver[VER_LENGTH];
+	memset(update_ver, 0, VER_LENGTH);
 	
 	if ((sockfd = connect_update_server()) == -1) {
 		return -1;
@@ -200,7 +202,7 @@ debug(LOG_DEBUG, "__________Entering function update()");
 	debug(LOG_DEBUG, "HTTP Request to Server: [%s]", request);
 
 	do {
-		response = send_request(sockfd, &request);
+		send_request(sockfd, &request, &response);
 		debug(LOG_DEBUG, "__________Response from Server: [%s]", response);
 		
 		/* XXX The premiss is the url for update files is in the end of the response,
@@ -208,7 +210,9 @@ debug(LOG_DEBUG, "__________Entering function update()");
 		if (strstr(response, ".bin") == NULL) {
 			times++;
 			if (in_update_time_period(delay_time) == 0) {
-//				sleep(delay_time);
+#if DEBUG
+				sleep(delay_time);
+#endif
 				continue;
 			} else {
 				close(sockfd);
@@ -230,8 +234,8 @@ debug(LOG_DEBUG, "__________Entering function update()");
 
 	// The correct URL returned is a download address for update file suffixed with ".bin"
 	if (is_update_url) {
-		tmp = strstr(response, "http://apupgrade.51awifi.com/upload");
-		if (retrieve_update_file(tmp)) {
+		update_url = strstr(response, "http://apupgrade.51awifi.com/upload");
+		if (retrieve_update_file(update_url)) {
 			debug(LOG_DEBUG, "Retrieving update file failed");
 			return -1;
 		}
@@ -239,30 +243,40 @@ debug(LOG_DEBUG, "__________Entering function update()");
 		debug(LOG_DEBUG, "HTTP request format maybe wrong");
 		return -1;
 	}
+debug(LOG_DEBUG, "______________________________update_url: %s", update_url);
 
-
+/*
 	if (check_network_traffic()) {
 		debug(LOG_DEBUG, "Network traffic rate is too high for update procedure");
 		return -1;
 	}
-
+*/
 	if (do_update()) {
 		debug(LOG_DEBUG, "Sysupgrade failed");
 		return -1;
 	}
-
+/*
+	get_update_ver(update_url, &update_ver);
+	if (strlen(update_ver) == 0) {
+		debug(LOG_DEBUG, "Getting update version failed");
+		return -1;
+	} else if (update_ver_Edit(update_ver)) {
+		debug(LOG_DEBUG, "Failed in configuring update version to file");
+		return -1;
+	}
+*/
+	/* XXX report to log server? */
 	return 0;
 }
 
 
-char *
-send_request(int sockfd, char *request)
+int
+send_request(int sockfd, char *request, char *response)
 {
 	ssize_t		numbytes = 0;
 	size_t		totalbytes = 0;
 	int			nfds, done = 0;
 	fd_set		readfds;
-	char		response[MAX_BUF];
 
 	send(sockfd, request, strlen(request), 0);
 	debug(LOG_DEBUG, "Reading response");
@@ -278,7 +292,7 @@ send_request(int sockfd, char *request)
 			numbytes = read(sockfd, response + totalbytes, MAX_BUF - (totalbytes + 1));
 			if (numbytes < 0) {
 				debug(LOG_ERR, "An error occurred while reading from update server: %s", strerror(errno));
-				return NULL;
+				return -1;
 			}
 			else if (numbytes == 0) {
 				done = 1;
@@ -290,18 +304,18 @@ send_request(int sockfd, char *request)
 		}
 		else if (nfds == 0) {
 			debug(LOG_ERR, "Timed out reading data via select() from update server");
-			return NULL;
+			return -1;
 		}
 		else if (nfds < 0) {
 			debug(LOG_ERR, "Error reading data via select() from update server: %s", strerror(errno));
-			return NULL;
+			return -1;
 		}
 	} while (!done);
 
 	debug(LOG_DEBUG, "Done reading reply, total %d bytes", totalbytes);
 	response[totalbytes] = '\0';
 
-	return response;
+	return totalbytes;
 }
 
 
@@ -316,7 +330,7 @@ retrieve_update_file(char *request)
 		debug(LOG_DEBUG, "rm update file command successfully: %s", rm_cmd);
 	}
 */
-	sprintf(cmd, "wget -c -O /tmp/ctbri.bin %s", request);
+	sprintf(cmd, "wget -c -O %s %s", UPDATE_FILE, request);
 /*
 	if (execute(cmd, 0)) {
 		debug(LOG_DEBUG, "Retrieving update file command failed: %s", cmd);
@@ -336,10 +350,8 @@ check_network_traffic()
 	unsigned long int	traffic_in_old = 0;
 	unsigned long int	traffic_in = 0;
 	unsigned long int	traffic_in_diff = 0;
-// In release version, interval time is 300 seconds
-	unsigned int 		interval_time = 10;
-// In release version, delay time is 1200 seconds
-	unsigned int		delay_time = 5;
+	unsigned int 		interval_time = INTERVAL_TIME;
+	unsigned int		delay_time = DELAY_TIME;
 	unsigned int		times = 0;
 
 	do {
@@ -397,29 +409,57 @@ get_network_traffic()
 int
 do_update()
 {
-	// UPDATE_FILE
+	char	cmd[MAX_BUF];
+	pid_t	ppid, pid;
+//	sprintf(cmd, "opkg install --force-overwrite %s", UPDATE_FILE);
+/*
+	// Maybe we should try to use system()?
+	if (execute(cmd, 0)) {
+		debug(LOG_DEBUG, "Update command failed: %s", cmd);
+		return -1;
+	}
+*/
+	ppid = getpid();
+debug(LOG_DEBUG, "_____**********_____ppid: %d", ppid);
+	pid = fork();
+debug(LOG_DEBUG, "_____**********_____pid: %d", pid);
+	sprintf(cmd, "kill -9 %d", ppid);
+	system(cmd);
+	sleep(20);
+
+/*
+	if (execute("smartwifi", 0)) {
+		debug(LOG_DEBUG, "Reboot smartwifi command failed: %s", cmd);
+		return -1;
+	}
+*/
+
 	return 0;
 }
 
+//			http://apupgrade.51awifi.com/upload/FiberHome/HG261GS//V1.0.4.bin
+int
+get_update_ver(char *update_url, char *update_ver)
+{
+	char	*ptr_p, *ptr;
+	int		ver_length;
 
+	if (update_url == NULL) {
+		return -1;
+	}
 
+	ptr_p = update_url;
+	do {
+		ptr = ptr_p;
+		ptr++;
+		ptr_p = strstr(ptr, "/");
+	} while (ptr_p != NULL);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	ver_length = strlen(ptr) - 4;
+	strncpy(update_ver, ptr, ver_length);
+	update_ver[ver_length] = '\0';
+debug(LOG_DEBUG, "______________________________update_ver: %s", update_ver);	
+	return 0;
+}
 
 

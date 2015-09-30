@@ -28,9 +28,21 @@
 #ifndef _UPDATE_
 #define _UPDATE_
 
+#define DEBUG 0
+
+#if DEBUG
+#define DELAY_TIME 1200
+#define INTERVAL_TIME 300
+#else
+#define DELAY_TIME 5
+#define INTERVAL_TIME 10
+#endif
+
 #define UPDATE_FILE "/tmp/ctbri.bin"
+#define VER_LENGTH 20
 
 void thread_update(void *arg);
+/* Delay time until 2:00 next day */
 int delay_to_next_day();
 
 /* Delay sending request for a random time
@@ -38,7 +50,7 @@ int delay_to_next_day();
 unsigned int random_delay_time();
 int in_update_time_period(unsigned int delay_time);
 int update(void);
-char* send_request(int sockfd, char *request);
+int send_request(int sockfd, char *request, char *response);
 int retrieve_update_file(char *request);
 
 /* Check network traffic, if the rate is high, check it minutes later
@@ -46,5 +58,6 @@ int retrieve_update_file(char *request);
 unsigned long int check_network_traffic();
 unsigned long int get_network_traffic();
 int do_update();
+int get_update_ver(char *update_url, char *update_ver);
 
 #endif
