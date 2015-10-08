@@ -205,6 +205,25 @@ char *update_supplier_Read() {
   return str; 
 }
 
+char *update_postcode_Read() {
+
+  struct uci_context *c;
+  struct uci_ptr p;
+
+  char *postcode = safe_strdup ("smartwifi.@update[0].postcode"); 
+  c = uci_alloc_context();
+  if (uci_lookup_ptr (c, &p, postcode, true) != UCI_OK)
+    {
+      uci_perror (c, "XXX");
+      return 1;
+    }
+
+  char *str = strdup(p.o->v.string);
+  uci_free_context (c);
+  free(postcode);
+  return str; 
+}
+
 int update_ver_Edit(const char *option) {
 
   struct uci_context *c;

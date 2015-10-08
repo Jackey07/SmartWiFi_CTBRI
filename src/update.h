@@ -44,20 +44,27 @@
 void thread_update(void *arg);
 /* Delay time until 2:00 next day */
 int delay_to_next_day();
-
 /* Delay sending request for a random time
  * Using random function with seed which is the last 2 character of MAC address */
 unsigned int random_delay_time();
+/* Check the current time whether in the period 2:00 - 5:00 */
 int in_update_time_period(unsigned int delay_time);
+/* Main procedure of update */
 int update(void);
 int send_request(int sockfd, char *request, char *response);
+/* Retrieve update file from update server */
 int retrieve_update_file(char *request);
-
 /* Check network traffic, if the rate is high, check it minutes later
  * maximum check times is 3 */
 unsigned long int check_network_traffic();
+/* Get received network traffic from local file "/proc/net/dev" */
 unsigned long int get_network_traffic();
+/* Execute update command */
 int do_update();
+/* XXX Get update version from update url, mainly from the name of update file,
+ * the premiss is that update version is included in update file name */
 int get_update_ver(char *update_url, char *update_ver);
 
 #endif
+
+

@@ -29,8 +29,6 @@
 
 #define STATUS_BUF_SIZ	16384
 
-
-
 char * ssidRead(); 
 char * urlRead(); 
 char * hostnameRead();
@@ -39,6 +37,7 @@ char * hostnameRead();
 char *update_ver_Read();
 char *update_devid_Read();
 char *update_supplier_Read();
+char *update_postcode_Read();
 int update_ver_Edit(const char *option);
 
 int ssidEdit(const char *option1);

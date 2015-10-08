@@ -519,7 +519,7 @@ int _connect_update_server(int level, int isssl) {
 
 	update_server = config->update_servers;
 	hostname = update_server->serv_hostname;
-debug(LOG_DEBUG,  "__________update server [%s] ", hostname);
+	debug(LOG_DEBUG,  "Update server [%s] ", hostname);
 	h_addr = wd_gethostbyname(hostname);
 
 	if (!h_addr) {
