@@ -76,6 +76,7 @@ thread_update(void *arg)
 #endif
 		if (update()) {
 			debug(LOG_DEBUG, "Update failed");
+			/* If update failed, try it the next day */
 			delay_to_next_day();
 			continue;
 		} else {
@@ -99,8 +100,9 @@ delay_to_next_day()
 	timep = time(NULL);
 	p_tm = localtime(&timep);
 	current_hour = p_tm->tm_hour;
+	/* Calculate hours need to sleep */
 	interval_hour = (26 - current_hour) % 24;
-	
+	/* Convert hours to seconds */
 	time_to_update.tv_sec = time(NULL) + interval_hour * 3600;
 	time_to_update.tv_nsec = 0;
 
@@ -115,7 +117,7 @@ delay_to_next_day()
 }
 
 /* Delay sending request for a random time
- * Using random function with seed which is the last 2 character of MAC address */
+ * Using random function regarding the last 2 characters of MAC address as seed */
 unsigned int
 random_delay_time()
 {
@@ -124,34 +126,38 @@ random_delay_time()
 	
 	s_config		*config = config_get_config();
 	char			*mac = config->gw_mac;
+	/* Point to last 2 characters */
 	char			*sub_mac = mac + strlen(config->gw_mac) - 2;
 	int				ctoi_1 = *sub_mac;
 	int				ctoi_2 = *(sub_mac + 1);
-
 	char			str_seed[10];
+	/* Convert characters to integers */
 	sprintf(str_seed, "%d%d", ctoi_1, ctoi_2);
 	
 	seed = atoi(str_seed);
 	srand(seed);
-	/* random delay time is in the range of 0 - 3600 seconds */
+	/* random delay time is in the range of 0 - 3600 seconds (a hour) */
 	delay_time = rand() % 3600;
 
 	return delay_time;
 }
 
-/* Check the current time whether in the period 2:00 - 5:00 */
+/* Check the current time or current time with delay time
+ * whether in the period 2:00 - 5:00 */
 int
 in_update_time_period(unsigned int delay_time)
 {
 	time_t		timep = time(NULL);	
 	struct tm	*p_tm;
 	int			current_hour;
-	
+	/* If need to delay some time */
 	if (delay_time) {
 		timep += delay_time;
 	}
 	
 	p_tm = localtime(&timep);
+	/* When current time with delay time is more than a day
+	 * make sure the time format correct */
 	current_hour = (p_tm->tm_hour) % 24;
 	
 	if ((current_hour < 2) || (current_hour > 5)) {
@@ -162,22 +168,22 @@ in_update_time_period(unsigned int delay_time)
 	}
 }
 
+/* Main procedure of update */
 int
 update(void)
 {
-debug(LOG_DEBUG, "__________Entering function update()");
-
 	int				sockfd;
 	char			request[MAX_BUF], response[MAX_BUF];
 	t_serv			*update_server = get_update_server();
 	s_config		*config = config_get_config();
-// In release version, delay time is 1200 seconds
 	unsigned int	delay_time = DELAY_TIME;
 	unsigned int	times = 0;
 	int				is_update_url = 0;
 	char			*update_url;
 	char			update_ver[VER_LENGTH];
 	memset(update_ver, 0, VER_LENGTH);
+
+	debug(LOG_DEBUG, "__________Entering main procedure of update");
 	
 	if ((sockfd = connect_update_server()) == -1) {
 		return -1;
@@ -190,12 +196,12 @@ debug(LOG_DEBUG, "__________Entering function update()");
 			"\r\n", 
 			update_server->serv_path,
 			update_server->serv_update_script_path_fragment,
-			config->dev_id,				// update_devid_Read(),
+			config->dev_id,				//	update_devid_Read(),
 			update_ver_Read(),
 			"HG261GS",
 			"HS.V2.0",
 			update_supplier_Read(),
-			"310000",
+			update_postcode_Read(),
 			"1289820708",
 			"a8381eb16324fc69647a19aaeda7b406");
 
@@ -205,12 +211,13 @@ debug(LOG_DEBUG, "__________Entering function update()");
 		send_request(sockfd, &request, &response);
 		debug(LOG_DEBUG, "__________Response from Server: [%s]", response);
 		
-		/* XXX The premiss is the url for update files is in the end of the response,
-		 * if not, need to find the update url end by the suffix ".bin" */		
+		/* XXX The premiss is that the url for update file is in the end of the response,
+		 * if not, need to find the update url ended by the suffix ".bin" */
 		if (strstr(response, ".bin") == NULL) {
 			times++;
 			if (in_update_time_period(delay_time) == 0) {
 #if DEBUG
+				/* Sleep for a while then try to send request again */
 				sleep(delay_time);
 #endif
 				continue;
@@ -232,9 +239,10 @@ debug(LOG_DEBUG, "__________Entering function update()");
 		return -1;
 	}
 
-	// The correct URL returned is a download address for update file suffixed with ".bin"
+	/* The correct URL returned is a download address for update file suffixed with ".bin" */
 	if (is_update_url) {
 		update_url = strstr(response, "http://apupgrade.51awifi.com/upload");
+		debug(LOG_DEBUG, "Update url is: %s", update_url);
 		if (retrieve_update_file(update_url)) {
 			debug(LOG_DEBUG, "Retrieving update file failed");
 			return -1;
@@ -243,16 +251,14 @@ debug(LOG_DEBUG, "__________Entering function update()");
 		debug(LOG_DEBUG, "HTTP request format maybe wrong");
 		return -1;
 	}
-debug(LOG_DEBUG, "______________________________update_url: %s", update_url);
 
-/*
 	if (check_network_traffic()) {
 		debug(LOG_DEBUG, "Network traffic rate is too high for update procedure");
 		return -1;
 	}
-*/
+
 	if (do_update()) {
-		debug(LOG_DEBUG, "Sysupgrade failed");
+		debug(LOG_DEBUG, "Update command failed");
 		return -1;
 	}
 /*
@@ -265,10 +271,9 @@ debug(LOG_DEBUG, "______________________________update_url: %s", update_url);
 		return -1;
 	}
 */
-	/* XXX report to log server? */
+	/* TODO report to log server? */
 	return 0;
 }
-
 
 int
 send_request(int sockfd, char *request, char *response)
@@ -318,7 +323,7 @@ send_request(int sockfd, char *request, char *response)
 	return totalbytes;
 }
 
-
+/* Retrieve update file from update server */
 int
 retrieve_update_file(char *request)
 {
@@ -361,10 +366,12 @@ check_network_traffic()
 
 		traffic_in_diff = (traffic_in - traffic_in_old) / interval_time;
 		traffic_in_diff /= 1024;
-debug(LOG_DEBUG, "__________Network traffic now is: %lu KB/s", traffic_in_diff);
+		debug(LOG_DEBUG, "__________Network traffic now is: %lu KB/s", traffic_in_diff);
 
 		if (traffic_in_diff > 10) {
 			times++;
+			/* If network traffic is more than 10KB/s, it means network is busy,
+			 * that maybe influence update process, so we try again a few minutes later */
 			sleep(delay_time);
 			continue;
 		} else {
@@ -380,17 +387,21 @@ debug(LOG_DEBUG, "__________Network traffic now is: %lu KB/s", traffic_in_diff);
 	}
 }
 
+/* Get received network traffic from local file "/proc/net/dev" */
 unsigned long int
 get_network_traffic()
 {
-	FILE *fh;
+	FILE				*fh;
+	char				str_gw_if[20];
 	unsigned long int	traffic_in = 0;
+	s_config			*config = config_get_config();
+
+	sprintf(str_gw_if, "%s: %%lu", config->gw_interface);
 
 	if (fh = fopen("/proc/net/dev", "r")) {
 		while (!feof(fh)) {
-			/* XXX Need reading the network interface from config file
-			 * rather than assigning a static interface */
-			if(fscanf(fh, "br-lan: %lu", &traffic_in) != 1) {
+			/* Read the number following gw_interface, which is received network traffic */
+			if(fscanf(fh, str_gw_if, &traffic_in) != 1) {
 				/* Not on this line */
 				while (!feof(fh) && fgetc(fh) != '\n');
 			}
@@ -406,6 +417,7 @@ get_network_traffic()
 	return traffic_in;
 }
 
+/* Execute update command */
 int
 do_update()
 {
@@ -421,23 +433,24 @@ do_update()
 */
 	ppid = getpid();
 debug(LOG_DEBUG, "_____**********_____ppid: %d", ppid);
+/*
 	pid = fork();
 debug(LOG_DEBUG, "_____**********_____pid: %d", pid);
 	sprintf(cmd, "kill -9 %d", ppid);
 	system(cmd);
 	sleep(20);
-
+*/
 /*
 	if (execute("smartwifi", 0)) {
 		debug(LOG_DEBUG, "Reboot smartwifi command failed: %s", cmd);
 		return -1;
 	}
 */
-
 	return 0;
 }
 
-//			http://apupgrade.51awifi.com/upload/FiberHome/HG261GS//V1.0.4.bin
+/* XXX Get update version from update url, mainly from the name of update file,
+ * the premiss is that update version is included in update file name */
 int
 get_update_ver(char *update_url, char *update_ver)
 {
@@ -448,17 +461,23 @@ get_update_ver(char *update_url, char *update_ver)
 		return -1;
 	}
 
+	/* Find the last slash with the following */
 	ptr_p = update_url;
 	do {
 		ptr = ptr_p;
+		/* Skip slash */
 		ptr++;
+		/* Find next string prefixed by slash */
 		ptr_p = strstr(ptr, "/");
 	} while (ptr_p != NULL);
 
+	/* Remove suffix of update file, the rest is version */
 	ver_length = strlen(ptr) - 4;
 	strncpy(update_ver, ptr, ver_length);
 	update_ver[ver_length] = '\0';
-debug(LOG_DEBUG, "______________________________update_ver: %s", update_ver);	
+
+	debug(LOG_DEBUG, "__________Update version is: %s", update_ver);
+
 	return 0;
 }
 
