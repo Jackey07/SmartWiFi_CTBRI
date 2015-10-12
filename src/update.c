@@ -329,13 +329,19 @@ int
 retrieve_update_file(char *request)
 {
 	char cmd[MAX_BUF];
-/*	
 	char rm_cmd[MAX_BUF];
 	sprintf(rm_cmd, "rm %s", UPDATE_FILE);
-	if (execute(rm_cmd, 0) == 0) {
-		debug(LOG_DEBUG, "rm update file command successfully: %s", rm_cmd);
+	if(access(UPDATE_FILE,F_OK)==0)
+	{
+		if (execute(rm_cmd, 0) == 0) {
+			debug(LOG_DEBUG, "rm update file command successfully: %s", rm_cmd);
+		}
+		else
+		{
+			debug(LOG_DEBUG, "rm update file command no: ");
+		}
 	}
-*/
+
 	sprintf(cmd, "wget -c -O %s %s", UPDATE_FILE, request);
 
 	if (execute(cmd, 0)) {
