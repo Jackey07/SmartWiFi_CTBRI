@@ -238,6 +238,10 @@ ding(void)
 			//retrieve(json);
 			debug(LOG_DEBUG, "Auth Server Says Task" );
         	}
+        	else if(strstr(request, "Close")){
+					execute("killall readfifo",0);
+					debug(LOG_DEBUG, "Auth Server Says Close" );
+		 }
 		else{	
 
 			debug(LOG_WARNING, "Auth server did NOT say pong!");
