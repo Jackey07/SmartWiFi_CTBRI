@@ -74,11 +74,13 @@ typedef enum {
 	oGatewayPort,
 	oPortalServer,
 	oPlatServer,
+	oLogServer,
 	oAuthServer,
 	oServHostname,
 	oServSSLAvailable,
 	oServSSLPort,
 	oServHTTPPort,
+	oLogServPort,
 	oServPath,
 	oServLoginScriptPathFragment,
 	oServPortalScriptPathFragment,
@@ -119,6 +121,7 @@ static const struct {
 	{ "authserver",         	oAuthServer },
 	{ "portalserver",         	oPortalServer },
 	{ "platformserver",         	oPlatServer },
+	{ "logserver",     	    	oLogServer },
 	{ "httpdmaxconn",       	oHTTPDMaxConn },
 	{ "httpdname",          	oHTTPDName },
 	{ "httpdrealm",			oHTTPDRealm },
@@ -133,6 +136,7 @@ static const struct {
 	{ "sslavailable",		oServSSLAvailable },
 	{ "sslport",			oServSSLPort },
 	{ "httpport",			oServHTTPPort },
+	{ "logport",			oLogServPort },
 	{ "path",			oServPath },
 	{ "loginscriptpathfragment",	oServLoginScriptPathFragment },
 	{ "portalscriptpathfragment",	oServPortalScriptPathFragment },
@@ -399,6 +403,8 @@ parse_server(FILE *file, const char *filename, int *linenum,int type)
 					break;
 				case oServHTTPPort:
 					http_port = atoi(p2);
+					break;
+				case oLogServPort:
 					break;
 				case oServSSLAvailable:
 					ssl_available = parse_boolean_value(p2);
@@ -864,6 +870,9 @@ config_read(const char *filename)
 				case oPlatServer:
 					parse_server(fd, filename,
 							&linenum,3);
+					break;
+				case oLogServer:
+					//parse_server(fd, filename,&linenum,4);
 					break;
 				case oFirewallRuleSet:
 					parse_firewall_ruleset(p1, fd, filename, &linenum);
