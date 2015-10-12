@@ -191,8 +191,8 @@ update(void)
 
 	snprintf(request, sizeof(request) - 1,
 			"GET %s%sdevid=%s&version=%s&model=%s&HDversion=%s&supplier=%s&city=%s&applyid=%s&rdMD5=%s HTTP/1.0\r\n"
-			"User-Agent: WiFiDog 1.1 \r\n"
-			"Host: apupgrade.51awifi.com \r\n"
+			"User-Agent: SmartWiFi 1.1 \r\n"
+			"Host: %s \r\n"
 			"\r\n", 
 			update_server->serv_path,
 			update_server->serv_update_script_path_fragment,
@@ -203,7 +203,8 @@ update(void)
 			update_supplier_Read(),
 			update_postcode_Read(),
 			"1289820708",
-			"a8381eb16324fc69647a19aaeda7b406");
+			"a8381eb16324fc69647a19aaeda7b406",
+			update_server->serv_hostname);
 
 	debug(LOG_DEBUG, "HTTP Request to Server: [%s]", request);
 
