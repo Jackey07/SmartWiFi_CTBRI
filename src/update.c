@@ -183,7 +183,7 @@ update(void)
 	char			update_ver[VER_LENGTH];
 	memset(update_ver, 0, VER_LENGTH);
 
-	debug(LOG_DEBUG, "__________Entering main procedure of update");
+	debug(LOG_DEBUG, "Entering main procedure of update");
 	
 	if ((sockfd = connect_update_server()) == -1) {
 		return -1;
@@ -210,7 +210,7 @@ update(void)
 
 	do {
 		send_request(sockfd, &request, &response);
-		debug(LOG_DEBUG, "__________Response from Server: [%s]", response);
+		debug(LOG_DEBUG, "Response from Server: [%s]", response);
 		
 		/* XXX The premiss is that the url for update file is in the end of the response,
 		 * if not, need to find the update url ended by the suffix ".bin" */
@@ -262,7 +262,7 @@ update(void)
 		debug(LOG_DEBUG, "Update command failed");
 		return -1;
 	}
-/*
+
 	get_update_ver(update_url, &update_ver);
 	if (strlen(update_ver) == 0) {
 		debug(LOG_DEBUG, "Getting update version failed");
@@ -271,7 +271,7 @@ update(void)
 		debug(LOG_DEBUG, "Failed in configuring update version to file");
 		return -1;
 	}
-*/
+
 	/* TODO report to log server? */
 	return 0;
 }
@@ -337,12 +337,12 @@ retrieve_update_file(char *request)
 	}
 */
 	sprintf(cmd, "wget -c -O %s %s", UPDATE_FILE, request);
-/*
+
 	if (execute(cmd, 0)) {
 		debug(LOG_DEBUG, "Retrieving update file command failed: %s", cmd);
 		return -1;
 	}
-*/
+
 	debug(LOG_DEBUG, "Retrieving update file command executed successfully: [%s]", cmd);
 
 	return 0;
@@ -367,7 +367,7 @@ check_network_traffic()
 
 		traffic_in_diff = (traffic_in - traffic_in_old) / interval_time;
 		traffic_in_diff /= 1024;
-		debug(LOG_DEBUG, "__________Network traffic now is: %lu KB/s", traffic_in_diff);
+		debug(LOG_DEBUG, "Network traffic now is: %lu KB/s", traffic_in_diff);
 
 		if (traffic_in_diff > 10) {
 			times++;
@@ -424,29 +424,19 @@ do_update()
 {
 	char	cmd[MAX_BUF];
 	pid_t	ppid, pid;
-//	sprintf(cmd, "opkg install --force-overwrite %s", UPDATE_FILE);
-/*
+	sprintf(cmd, "opkg install --force-overwrite %s", UPDATE_FILE);
+
 	// Maybe we should try to use system()?
 	if (execute(cmd, 0)) {
 		debug(LOG_DEBUG, "Update command failed: %s", cmd);
 		return -1;
 	}
-*/
-	ppid = getpid();
-debug(LOG_DEBUG, "_____**********_____ppid: %d", ppid);
-/*
-	pid = fork();
-debug(LOG_DEBUG, "_____**********_____pid: %d", pid);
-	sprintf(cmd, "kill -9 %d", ppid);
-	system(cmd);
-	sleep(20);
-*/
-/*
-	if (execute("smartwifi", 0)) {
+ 
+	if (execute("reboot", 0)) {
 		debug(LOG_DEBUG, "Reboot smartwifi command failed: %s", cmd);
 		return -1;
 	}
-*/
+
 	return 0;
 }
 
@@ -477,7 +467,7 @@ get_update_ver(char *update_url, char *update_ver)
 	strncpy(update_ver, ptr, ver_length);
 	update_ver[ver_length] = '\0';
 
-	debug(LOG_DEBUG, "__________Update version is: %s", update_ver);
+	debug(LOG_DEBUG, "Update version is: %s", update_ver);
 
 	return 0;
 }
