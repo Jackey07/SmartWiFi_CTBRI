@@ -298,23 +298,26 @@ termination_handler(int s)
 		debug(LOG_INFO, "Explicitly killing the fw_counter thread");
 		pthread_kill(tid_fw_counter, SIGKILL);
 	}
+
 	if (tid_ping) {
 		debug(LOG_INFO, "Explicitly killing the ping thread");
 		pthread_kill(tid_ping, SIGKILL);
 	}
-	
-	
+
 	if (tid_ding) {
 		debug(LOG_INFO, "Explicitly killing the ding thread");
 		pthread_kill(tid_ding, SIGKILL);
 	}
 	
-
 	if (tid_authlog) {
 		debug(LOG_INFO, "Explicitly killing the fetchconf thread");
 		pthread_kill(tid_authlog, SIGKILL);
 	}
 
+	if (tid_update) {
+		debug(LOG_INFO, "Explicitly killing the update thread");
+		pthread_kill(tid_update, SIGKILL);
+	}
 
 	debug(LOG_NOTICE, "Exiting...");
 	exit(s == 0 ? 1 : 0);
@@ -560,14 +563,18 @@ int main(int argc, char **argv) {
 
 	if (!config->ssid) {
     	if ((config->ssid = ssidRead()) == NULL) {
-			debug(LOG_ERR, "Could not get Hostname information of %s, exiting...");
+			debug(LOG_ERR, "Could not get SSID information of %s, exiting...");
 			exit(1);
+		}
+		else {
+			config->ssid = "x86ssid";
+			debug(LOG_ERR,"Default SSID is \"x86ssid\"");
 		}
 	}
 	
 	if (!config->imageurl) {
     	if ((config->imageurl = urlRead()) == NULL) {
-			debug(LOG_ERR, "Could not get Hostname information of %s, exiting...");
+			debug(LOG_ERR, "Could not get ImageUrl information of %s, exiting...");
 			exit(1);
 		}
 	}

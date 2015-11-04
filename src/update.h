@@ -30,7 +30,7 @@
 
 #define DEBUG 0
 
-#if DEBUG
+#if DEBUG == 0
 #define DELAY_TIME 1200
 #define INTERVAL_TIME 300
 #else

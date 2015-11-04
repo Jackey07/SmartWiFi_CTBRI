@@ -59,29 +59,32 @@ thread_update(void *arg)
 	unsigned int		rand_time;
 
 	while (1) {
-#if DEBUG
+#if DEBUG == 0
 		/* Set a timer to activate the update procedure
 		 * If current time is not in the update period, delay it untile 2:00 */
-		if (in_update_time_period(0)) {
-			delay_to_next_day();
+		if (in_update_time_period(0) != 0) {
 			debug(LOG_DEBUG, "Delay update procedure to next day");
+			delay_to_next_day();
 			continue;
 		}
 #endif
 
 		rand_time = random_delay_time();
 		debug(LOG_DEBUG, "Update procedure will execute after random delay time %d seconds", rand_time);
-#if DEBUG
+#if DEBUG == 0
 		sleep(rand_time);
 #endif
 		if (update()) {
 			debug(LOG_DEBUG, "Update failed");
 			/* If update failed, try it the next day */
+			debug(LOG_DEBUG, "Delay update procedure to next day");
 			delay_to_next_day();
 			continue;
 		} else {
 			timep = time(NULL);
 			debug(LOG_DEBUG, "Updated successfully in: %s", asctime(localtime(&timep)));
+			delay_to_next_day();
+			continue;
 		}	
 	}
 }
@@ -108,8 +111,10 @@ delay_to_next_day()
 
 	/* Mutex must be locked for pthread_cond_timedwait... */
 	pthread_mutex_lock(&cond_mutex);
+
 	/* Thread safe "sleep" */
 	pthread_cond_timedwait(&cond, &cond_mutex, &time_to_update);
+
 	/* No longer needs to be locked */
 	pthread_mutex_unlock(&cond_mutex);
 
@@ -136,7 +141,7 @@ random_delay_time()
 	
 	seed = atoi(str_seed);
 	srand(seed);
-	/* random delay time is in the range of 0 - 3600 seconds (a hour) */
+	/* Random delay time is in the range of 0 - 3600 seconds (a hour) */
 	delay_time = rand() % 3600;
 
 	return delay_time;
@@ -178,16 +183,21 @@ update(void)
 	s_config		*config = config_get_config();
 	unsigned int	delay_time = DELAY_TIME;
 	unsigned int	times = 0;
+	char			*update_ver_read = update_ver_Read();
+	char			*update_supplier_read = update_supplier_Read();
+	char			*update_postcode_read = update_postcode_Read();
 	int				is_update_url = 0;
 	char			*update_url;
 	char			update_ver[VER_LENGTH];
 	memset(update_ver, 0, VER_LENGTH);
 
 	debug(LOG_DEBUG, "Entering main procedure of update");
-	
+
+/*
 	if ((sockfd = connect_update_server()) == -1) {
 		return -1;
 	}
+*/
 
 	snprintf(request, sizeof(request) - 1,
 			"GET %s%sdevid=%s&version=%s&model=%s&HDversion=%s&supplier=%s&city=%s&applyid=%s&rdMD5=%s HTTP/1.0\r\n"
@@ -197,30 +207,41 @@ update(void)
 			update_server->serv_path,
 			update_server->serv_update_script_path_fragment,
 			config->dev_id,				//	update_devid_Read(),
-			update_ver_Read(),
+			update_ver_read,
 			"HG261GS",
 			"HS.V2.0",
-			update_supplier_Read(),
-			update_postcode_Read(),
+			update_supplier_read,
+			update_postcode_read,
 			"1289820708",
 			"a8381eb16324fc69647a19aaeda7b406",
 			update_server->serv_hostname);
 
+	free(update_ver_read);
+	free(update_supplier_read);
+	free(update_postcode_read);
+	update_ver_read = update_supplier_read = update_postcode_read = NULL;
+
 	debug(LOG_DEBUG, "HTTP Request to Server: [%s]", request);
 
 	do {
+		/* XXX Function conncet() should re-execute after finishing read()?
+		 * it sounds like unreasonale and ridiculous! */
+		if ((sockfd = connect_update_server()) == -1) {
+			return -1;
+		}
+
 		send_request(sockfd, &request, &response);
-		debug(LOG_DEBUG, "Response from Server: [%s]", response);
 		
 		/* XXX The premiss is that the url for update file is in the end of the response,
 		 * if not, need to find the update url ended by the suffix ".bin" */
 		if (strstr(response, ".bin") == NULL) {
 			times++;
 			if (in_update_time_period(delay_time) == 0) {
-#if DEBUG
+#if DEBUG == 0
 				/* Sleep for a while then try to send request again */
 				sleep(delay_time);
 #endif
+				close(sockfd);
 				continue;
 			} else {
 				close(sockfd);
@@ -228,13 +249,13 @@ update(void)
 			}
 		} else {
 			is_update_url = 1;
+			close(sockfd);
 			break;
 		}
-	
 	} while (times < 3);
-;
+/*
 	close(sockfd);
-
+*/
 	if (times >= 3) {
 		debug(LOG_DEBUG, "Trying to get update url more than 3 times");
 		return -1;
@@ -272,7 +293,7 @@ update(void)
 		return -1;
 	}
 
-	/* TODO report to log server? */
+	/* TODO Report to log server? */
 	return 0;
 }
 
@@ -331,7 +352,7 @@ retrieve_update_file(char *request)
 	char cmd[MAX_BUF];
 	char rm_cmd[MAX_BUF];
 	sprintf(rm_cmd, "rm %s", UPDATE_FILE);
-	if(access(UPDATE_FILE,F_OK)==0)
+	if(access(UPDATE_FILE, F_OK) == 0)
 	{
 		if (execute(rm_cmd, 0) == 0) {
 			debug(LOG_DEBUG, "rm update file command successfully: %s", rm_cmd);
@@ -407,7 +428,7 @@ get_network_traffic()
 
 	if (fh = fopen("/proc/net/dev", "r")) {
 		while (!feof(fh)) {
-			/* Read the number following gw_interface, which is received network traffic */
+			/* Read the number following gw_interface, which means network traffic received */
 			if(fscanf(fh, str_gw_if, &traffic_in) != 1) {
 				/* Not on this line */
 				while (!feof(fh) && fgetc(fh) != '\n');
@@ -432,7 +453,7 @@ do_update()
 	pid_t	ppid, pid;
 	sprintf(cmd, "opkg install --force-overwrite %s", UPDATE_FILE);
 
-	// Maybe we should try to use system()?
+	/* XXX Maybe we should try to use system()? */
 	if (execute(cmd, 0)) {
 		debug(LOG_DEBUG, "Update command failed: %s", cmd);
 		return -1;
