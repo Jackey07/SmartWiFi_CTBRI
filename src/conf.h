@@ -69,6 +69,8 @@
 #define DEFAULT_AUTHSERVMSGPATHFRAGMENT "gw_message.php?"
 #define DEFAULT_AUTHSERVPINGPATHFRAGMENT "ping?"
 #define DEFAULT_AUTHSERVAUTHPATHFRAGMENT "auth?"
+
+#define DEFAULT_DELTATRAFFIC 0    /* 0 means: Enable peer verification */
 /*@}*/ 
 
 /**
@@ -137,6 +139,7 @@ typedef struct {
     char *htmlmsgfile;		/**< @brief name of the HTML file used for messages */
     char *wdctl_sock;		/**< @brief wdctl path to socket */
     char *internal_sock;		/**< @brief internal path to socket */
+    int deltatraffic;	/**< @brief reset each user's traffic (Outgoing and Incoming) value after each Auth operation. */
     int daemon;			/**< @brief if daemon > 0, use daemon mode */
     int debuglevel;		/**< @brief Debug information verbosity */
     char *external_interface;	/**< @brief External network interface name for

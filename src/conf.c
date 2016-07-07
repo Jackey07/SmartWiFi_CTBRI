@@ -72,6 +72,7 @@ typedef enum {
 	oGatewayInterface,
 	oGatewayAddress,
 	oGatewayPort,
+	oDeltaTraffic,
 	oPortalServer,
 	oPlatServer,
 	oLogServer,
@@ -110,6 +111,7 @@ static const struct {
 	const char *name;
 	OpCodes opcode;
 } keywords[] = {
+	{ "deltatraffic", 		oDeltaTraffic}, 
 	{ "daemon",             	oDaemon },
 	{ "debuglevel",         	oDebugLevel },
 	{ "externalinterface",  	oExternalInterface },
@@ -215,6 +217,7 @@ config_init(void)
 	config.rulesets = NULL;
 	config.trustedmaclist = NULL;
 	config.proxy_port = 0;
+	config.deltatraffic = DEFAULT_DELTATRAFFIC;
 
 	new = safe_malloc(sizeof(t_serv));
 
@@ -836,6 +839,9 @@ config_read(const char *filename)
 				opcode = config_parse_token(s, filename, linenum);
 
 				switch(opcode) {
+				case oDeltaTraffic:
+                	config.deltatraffic = parse_boolean_value(p1);
+                	break;
 				case oDaemon:
 					if (config.daemon == -1 && ((value = parse_boolean_value(p1)) != -1)) {
 						config.daemon = value;
